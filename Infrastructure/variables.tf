@@ -31,3 +31,17 @@ variable "availability_zones" {
     type        = list(string)
     default     = ["us-east-1a", "us-east-1b"]
 }
+
+variable "container_port" {
+    description = "Port number of the container"
+    default = "3000"
+}
+
+variable "health_check_path" {
+    description = "Health check path for the default target group"
+    default = "/ping/"
+}
+
+# ecs_service_security_groups
+# alb_security_groups
+# health_check_path
