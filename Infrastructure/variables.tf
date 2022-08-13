@@ -34,12 +34,22 @@ variable "availability_zones" {
 
 variable "container_port" {
     description = "Port number of the container"
-    default = "3000"
+    default = "4100"
 }
 
 variable "health_check_path" {
     description = "Health check path for the default target group"
     default = "/ping/"
+}
+
+/* variable "docker_image_URL_test" {
+    description = "DOcker Image URL from the ECR"
+    default     = "394820470736.dkr.ecr.us-east-1.amazonaws.com/project-repo:latest"
+} */
+
+variable "alb_tls_cert_arn" {
+    description = "SSL Certificate ARN"
+    default     = "arn:aws:acm:us-east-1:394820470736:certificate/92e0cd7f-23ef-4595-a56b-6001bab2b5ca"
 }
 
 # ecs_service_security_groups
