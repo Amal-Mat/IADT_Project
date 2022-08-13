@@ -1,35 +1,3 @@
-/* # Generate Key-Pair which will be used for our instance
-
-resource "tls_private_key" "ec2-key" {
-    algorithm = "RSA"
-    rsa_bits  = 4096
-}
-   
-output "key_ssh"{
-    value = tls_private_key.ec2-key.public_key_openssh
-}
-
-output "pubkey"{
-    value = tls_private_key.ec2-key.public_key_pem
-}
-
-# Creating private key
-
-resource "local_file" "private_key" {
-    depends_on      = [tls_private_key.ec2-key]
-    content         = tls_private_key.ec2-key.private_key_pem
-    filename        = "ec2-key.pem"
-    file_permission = 0400
-}
-
-# Creating public key
-
-resource "aws_key_pair" "webserver_key" {
-    depends_on  = [local_file.private_key]
-    key_name    = "ec2-key"
-    public_key  = tls_private_key.ec2-key.public_key_openssh
-}
- */
 # Creating a VPC
 
 resource "aws_vpc" "project-vpc" {
@@ -189,14 +157,14 @@ resource "aws_security_group" "ecs-tasks" {
     }
 }
  
-# Implementing ECR (Elastic Container Registry)
+/* # Implementing ECR (Elastic Container Registry)
 
 resource "aws_ecr_repository" "project_ecr_repo" {
     name                    = "project-repo"
     image_tag_mutability    = "MUTABLE"
 }
-
-# Lifecycle Policy for ECR Docker images (Max 5 images)
+ */
+/* # Lifecycle Policy for ECR Docker images (Max 5 images)
 
 resource "aws_ecr_lifecycle_policy" "ecr_lifecycle_policy" {
     repository = aws_ecr_repository.project_ecr_repo.name
@@ -216,7 +184,7 @@ resource "aws_ecr_lifecycle_policy" "ecr_lifecycle_policy" {
         }]
     })
 }
-
+ */
 # Creating a cluster for ECS 
 
 resource "aws_ecs_cluster" "project-cluster" {
@@ -225,19 +193,24 @@ resource "aws_ecs_cluster" "project-cluster" {
 
 # Creating a task definition for ECS
 
+variable "docker_image_URL" {
+    description = "DOcker Image URL from the ECR"
+    default = "394820470736.dkr.ecr.us-east-1.amazonaws.com/project-repo:latest"
+}
+# For application container
 resource "aws_ecs_task_definition" "project-task" {
     family                   = "project-task"
     container_definitions    = <<DEFINITION
     [
         {
-        "name": "project-task-container",
-        "image": "${aws_ecr_repository.project_ecr_repo.repository_url}",
+        "name": "project-container",
+        "image": "${var.docker_image_URL}",
         "essential": true,
         "portMappings": [
             {
             "protocol": "tcp",
-            "containerPort": 3000,
-            "hostPort": 3000
+            "containerPort": 4100,
+            "hostPort": 4100
             }
         ]
         }
@@ -334,34 +307,6 @@ resource "aws_iam_role_policy_attachment" "ecs-task-execution-role-policy-attach
     policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Creating an ECS Service to run this task
-
-resource "aws_ecs_service" "project-service" {
-    name                                = "project-service"                          # Naming our first service
-    cluster                             = aws_ecs_cluster.project-cluster.id         # Referencing our created Cluster
-    task_definition                     = aws_ecs_task_definition.project-task.arn   # Referencing the task our service will spin up
-    launch_type                         = "FARGATE"
-    desired_count                       = 2                                          # Setting the number of containers we want deployed to 2
-    scheduling_strategy                 = "REPLICA"
-    deployment_minimum_healthy_percent  = 50
-    deployment_maximum_percent          = 200
-
-    network_configuration {
-    subnets             = ["${aws_subnet.private-subnet-1.id}", "${aws_subnet.private-subnet-2.id}"]
-    assign_public_ip    = false
-    security_groups     = [aws_security_group.ecs-tasks.id]
-    }
-
-    load_balancer {
-        target_group_arn    = aws_alb_target_group.lb-target-group.arn
-        container_name      = "project-container"
-        container_port      = var.container_port
-    }
-
-    lifecycle {
-        ignore_changes = [task_definition, desired_count]
-    }
-}
 
 # Implementing Load Balancer
 
@@ -408,7 +353,7 @@ resource "aws_alb_listener" "http" {
     }
 }
 
-/* resource "aws_alb_listener" "https" {
+resource "aws_alb_listener" "https" {
     load_balancer_arn   = aws_lb.load-balancer.id
     port                = 443
     protocol            = "HTTPS"
@@ -420,7 +365,37 @@ resource "aws_alb_listener" "http" {
         target_group_arn    = aws_alb_target_group.lb-target-group.id
         type                = "forward"
     }
-} */
+}
+
+
+# Creating an ECS Service to run this task
+
+resource "aws_ecs_service" "project-service" {
+    name                                = "project-service"                          # Naming our first service
+    cluster                             = aws_ecs_cluster.project-cluster.id         # Referencing our created Cluster
+    task_definition                     = aws_ecs_task_definition.project-task.arn   # Referencing the task our service will spin up
+    launch_type                         = "FARGATE"
+    desired_count                       = 2                                          # Setting the number of containers we want deployed to 2
+    scheduling_strategy                 = "REPLICA"
+    deployment_minimum_healthy_percent  = 50
+    deployment_maximum_percent          = 200
+
+    network_configuration {
+    subnets             = ["${aws_subnet.private-subnet-1.id}", "${aws_subnet.private-subnet-2.id}"]
+    assign_public_ip    = true
+    security_groups     = [aws_security_group.ecs-tasks.id]
+    }
+
+    load_balancer {
+        target_group_arn    = aws_alb_target_group.lb-target-group.arn
+        container_name      = "project-container"
+        container_port      = var.container_port
+    }
+
+    lifecycle {
+        ignore_changes = [task_definition, desired_count]
+    }
+}
 
 # Implementing AutoScaling 
 
