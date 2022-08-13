@@ -197,7 +197,7 @@ variable "docker_image_URL" {
     description = "DOcker Image URL from the ECR"
     default = "394820470736.dkr.ecr.us-east-1.amazonaws.com/project-repo:latest"
 }
-
+# For application container
 resource "aws_ecs_task_definition" "project-task" {
     family                   = "project-task"
     container_definitions    = <<DEFINITION
