@@ -215,7 +215,7 @@ resource "aws_ecs_task_definition" "project-task" {
         "portMappings": [
             {
             "protocol": "tcp",
-            "containerPort": 4100,
+            "containerPort": 3000,
             "hostPort": 4100
             }
         ]
@@ -231,8 +231,8 @@ resource "aws_ecs_task_definition" "project-task" {
 }
 
 # For database container
-resource "aws_ecs_task_definition" "project-task" {
-    family                   = "project-task"
+resource "aws_ecs_task_definition" "project-task1" {
+    family                   = "project-task1"
     container_definitions    = <<DEFINITION
     [
         {
@@ -242,8 +242,8 @@ resource "aws_ecs_task_definition" "project-task" {
         "portMappings": [
             {
             "protocol": "tcp",
-            "containerPort": 4100,
-            "hostPort": 4100
+            "containerPort": 3000,
+            "hostPort": 27017
             }
         ]
         }
@@ -407,6 +407,35 @@ resource "aws_ecs_service" "project-service" {
     name                                = "project-service"                          # Naming our first service
     cluster                             = aws_ecs_cluster.project-cluster.id         # Referencing our created Cluster
     task_definition                     = aws_ecs_task_definition.project-task.arn   # Referencing the task our service will spin up
+    launch_type                         = "FARGATE"
+    desired_count                       = 2                                          # Setting the number of containers we want deployed to 2
+    scheduling_strategy                 = "REPLICA"
+    deployment_minimum_healthy_percent  = 50
+    deployment_maximum_percent          = 200
+
+    network_configuration {
+    subnets             = ["${aws_subnet.private-subnet-1.id}", "${aws_subnet.private-subnet-2.id}"]
+    assign_public_ip    = true
+    security_groups     = [aws_security_group.ecs-tasks.id]
+    }
+
+    load_balancer {
+        target_group_arn    = aws_alb_target_group.lb-target-group.arn
+        container_name      = "project-container"
+        container_port      = var.container_port
+    }
+
+    lifecycle {
+        ignore_changes = [task_definition, desired_count]
+    }
+}
+
+# Creating an ECS Service to run Database task
+
+resource "aws_ecs_service" "project-service1" {
+    name                                = "project-service1"                          # Naming our first service
+    cluster                             = aws_ecs_cluster.project-cluster.id         # Referencing our created Cluster
+    task_definition                     = aws_ecs_task_definition.project-task1.arn   # Referencing the task our service will spin up
     launch_type                         = "FARGATE"
     desired_count                       = 2                                          # Setting the number of containers we want deployed to 2
     scheduling_strategy                 = "REPLICA"
