@@ -197,6 +197,12 @@ variable "docker_image_URL" {
     description = "DOcker Image URL from the ECR"
     default = "394820470736.dkr.ecr.us-east-1.amazonaws.com/project-repo:latest"
 }
+
+variable "database_image_URL" {
+    description = "Docker Image URL from the ECR for database"
+    default = "394820470736.dkr.ecr.us-east-1.amazonaws.com/project-repo:5.0"
+}
+
 # For application container
 resource "aws_ecs_task_definition" "project-task" {
     family                   = "project-task"
@@ -205,6 +211,33 @@ resource "aws_ecs_task_definition" "project-task" {
         {
         "name": "project-container",
         "image": "${var.docker_image_URL}",
+        "essential": true,
+        "portMappings": [
+            {
+            "protocol": "tcp",
+            "containerPort": 4100,
+            "hostPort": 4100
+            }
+        ]
+        }
+    ]
+    DEFINITION
+    requires_compatibilities = ["FARGATE"] # Stating that we are using ECS Fargate
+    network_mode             = "awsvpc"    # Using awsvpc as our network mode as this is required for Fargate
+    memory                   = 512         # Specifying the memory our container requires
+    cpu                      = 256         # Specifying the CPU our container requires
+    execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
+    task_role_arn            = aws_iam_role.ecsTaskRole.arn
+}
+
+# For database container
+resource "aws_ecs_task_definition" "project-task" {
+    family                   = "project-task"
+    container_definitions    = <<DEFINITION
+    [
+        {
+        "name": "project-container",
+        "image": "${var.database_image_URL}",
         "essential": true,
         "portMappings": [
             {
