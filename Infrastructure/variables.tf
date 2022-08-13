@@ -34,7 +34,7 @@ variable "availability_zones" {
 
 variable "container_port" {
     description = "Port number of the container"
-    default = "4100"
+    default = "3000"
 }
 
 variable "health_check_path" {
