@@ -127,6 +127,12 @@ resource "aws_security_group" "alb" {
         to_port     = 443
         cidr_blocks = ["0.0.0.0/0"]
     }
+    ingress {
+        protocol    = "tcp"
+        from_port   = 3000
+        to_port     = 3000
+        cidr_blocks = ["0.0.0.0/0"]
+    }
 
     egress {
         protocol    = "-1"
@@ -160,6 +166,12 @@ resource "aws_security_group" "ecs-tasks" {
         protocol    = "tcp"
         from_port   = 443
         to_port     = 443
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+    ingress {
+        protocol    = "tcp"
+        from_port   = 3000
+        to_port     = 3000
         cidr_blocks = ["0.0.0.0/0"]
     }
 
@@ -209,12 +221,12 @@ resource "aws_ecs_cluster" "project-cluster" {
 
 variable "docker_image_URL" {
     description = "DOcker Image URL from the ECR"
-    default = "394820470736.dkr.ecr.us-east-1.amazonaws.com/project-repo:latest"
+    default = "394820470736.dkr.ecr.us-east-1.amazonaws.com/urls:latest"
 }
 
 variable "database_image_URL" {
     description = "Docker Image URL from the ECR for database"
-    default = "394820470736.dkr.ecr.us-east-1.amazonaws.com/project-repo1:5.0"
+    default = "394820470736.dkr.ecr.us-east-1.amazonaws.com/db:latest"
 }
 
 # For application container
@@ -223,41 +235,68 @@ resource "aws_ecs_task_definition" "project-task" {
     container_definitions    = <<DEFINITION
     [
         {
-        "name": "project-repo",
+        "name": "urls",
         "image": "${var.docker_image_URL}",
         "essential": true,
         "portMappings": [
             {
             "protocol": "tcp",
-            "containerPort": 3000,
-            "hostPort": 80
+            "containerPort": 3000
             }
-        ]
+        ],
+        "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+                "awslogs-group": "ecsTaskExecutionRole",  
+                "awslogs-region": "us-east-1",
+                "awslogs-stream-prefix": "streaming"
+            }
         }
-    ]
-    DEFINITION
-    requires_compatibilities = ["FARGATE"] # Stating that we are using ECS Fargate
-    network_mode             = "awsvpc"    # Using awsvpc as our network mode as this is required for Fargate
-    memory                   = 512         # Specifying the memory our container requires
-    cpu                      = 256         # Specifying the CPU our container requires
-    execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
-    task_role_arn            = aws_iam_role.ecsTaskRole.arn
-}
-
-# For database container
-resource "aws_ecs_task_definition" "project-task1" {
-    family                   = "project-task1"
-    container_definitions    = <<DEFINITION
-    [
+        },
         {
-        "name": "project-repo1",
+        "name": "db",
         "image": "${var.database_image_URL}",
         "essential": true,
         "portMappings": [
             {
             "protocol": "tcp",
-            "containerPort": 3000,
-            "hostPort": 80
+            "containerPort": 27017
+            }
+        ],
+        "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+                "awslogs-group": "ecsTaskExecutionRole",  
+                "awslogs-region": "us-east-1",
+                "awslogs-stream-prefix": "streaming"
+            }
+        }
+
+        }
+    ]
+    DEFINITION
+    requires_compatibilities = ["FARGATE"] # Stating that we are using ECS Fargate
+    network_mode             = "awsvpc"    # Using awsvpc as our network mode as this is required for Fargate
+    memory                   = 3072         # Specifying the memory our container requires
+    cpu                      = 1024          # Specifying the CPU our container requires
+    execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
+    task_role_arn            = aws_iam_role.ecsTaskExecutionRole.arn
+}
+
+# For database container
+/*
+resource "aws_ecs_task_definition" "project-task1" {
+    family                   = "project-task1"
+    container_definitions    = <<DEFINITION
+    [
+        {
+        "name": "db",
+        "image": "${var.database_image_URL}",
+        "essential": true,
+        "portMappings": [
+            {
+            "protocol": "tcp",
+            "containerPort": 27017
             }
         ]
         }
@@ -265,12 +304,12 @@ resource "aws_ecs_task_definition" "project-task1" {
     DEFINITION
     requires_compatibilities = ["FARGATE"] # Stating that we are using ECS Fargate
     network_mode             = "awsvpc"    # Using awsvpc as our network mode as this is required for Fargate
-    memory                   = 512         # Specifying the memory our container requires
+    memory                   = 1024         # Specifying the memory our container requires
     cpu                      = 256         # Specifying the CPU our container requires
     execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
-    task_role_arn            = aws_iam_role.ecsTaskRole.arn
+    task_role_arn            = aws_iam_role.ecsTaskExecutionRole.arn
 }
-
+*/
 # Creating IAM role for ECS Tasks
 
 resource "aws_iam_role" "ecsTaskRole" {
@@ -325,7 +364,7 @@ EOF
 
 resource "aws_iam_role_policy_attachment" "ecs-task-role-policy-attachment" {
     role        = aws_iam_role.ecsTaskRole.name
-    policy_arn  = aws_iam_policy.dynamodb.arn
+    policy_arn  = "arn:aws:iam::aws:policy/AmazonECS_FullAccess"
 }
 
 # Another role is needed to execute the tasks "serverlessly" with Fargate Config
@@ -356,7 +395,7 @@ resource "aws_iam_role_policy_attachment" "ecs-task-execution-role-policy-attach
 
 
 # Implementing Load Balancer
-
+/*
 resource "aws_lb" "load-balancer" {
     name                        = "load-balancer"
     internal                    = false
@@ -413,7 +452,7 @@ resource "aws_alb_listener" "https" {
         type                = "forward"
     }
 }
-
+*/
 
 # Creating an ECS Service to run this task
 
@@ -428,24 +467,24 @@ resource "aws_ecs_service" "project-service" {
     deployment_maximum_percent          = 200
 
     network_configuration {
-    subnets             = ["${aws_subnet.private-subnet-1.id}", "${aws_subnet.private-subnet-2.id}"]
+    subnets             = ["${aws_subnet.public-subnet-1.id}", "${aws_subnet.public-subnet-2.id}"]
     assign_public_ip    = true
     security_groups     = [aws_security_group.ecs-tasks.id]
     }
-
+    /*
     load_balancer {
         target_group_arn    = aws_alb_target_group.lb-target-group.arn
-        container_name      = "project-repo"
+        container_name      = "urls"
         container_port      = var.container_port
     }
-
+    */
     lifecycle {
         ignore_changes = [task_definition, desired_count]
     }
 }
 
 # Creating an ECS Service to run Database task
-
+/*
 resource "aws_ecs_service" "project-service1" {
     name                                = "project-service1"                          # Naming our first service
     cluster                             = aws_ecs_cluster.project-cluster.id         # Referencing our created Cluster
@@ -472,7 +511,7 @@ resource "aws_ecs_service" "project-service1" {
         ignore_changes = [task_definition, desired_count]
     }
 }
-
+*/
 # Implementing AutoScaling
 
 /* resource "aws_appautoscaling_target" "ecs_target" {

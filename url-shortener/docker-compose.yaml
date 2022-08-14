@@ -6,12 +6,14 @@ services:
     container_name: databasecon
     image: mongo:5.0
     restart: always
+    ports:
+      - 27017:27017
     volumes:
       - mongo_db:/data/db
 
   # Nodejs app
-  api:
-    build: .
+  urls:
+    image: 394820470736.dkr.ecr.us-east-1.amazonaws.com/urls:latest
     ports:
       - 3000:3000
     environment:
@@ -19,5 +21,7 @@ services:
       DATABASE: mongodb://mongo_db:27017
     depends_on:
       - mongo_db
+
+
 volumes:
   mongo_db: {}
