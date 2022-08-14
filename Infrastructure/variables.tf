@@ -54,4 +54,3 @@ variable "alb_tls_cert_arn" {
 
 # ecs_service_security_groups
 # alb_security_groups
-# health_check_path

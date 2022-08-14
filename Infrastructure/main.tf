@@ -137,7 +137,7 @@ resource "aws_security_group" "alb" {
 }
 
 # Implementing Security Group for ECS
-
+# Remove ports 80 and 443 later (Used it for testing)
 resource "aws_security_group" "ecs-tasks" {
     name    = "ecs-security-group"
     vpc_id  = aws_vpc.project-vpc.id
@@ -149,6 +149,20 @@ resource "aws_security_group" "ecs-tasks" {
         cidr_blocks = ["0.0.0.0/0"]
     }
 
+    ingress {
+        protocol    = "tcp"
+        from_port   = 80
+        to_port     = 80
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    ingress {
+        protocol    = "tcp"
+        from_port   = 443
+        to_port     = 443
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
     egress {
         protocol    = "-1"
         from_port   = 0
@@ -156,7 +170,7 @@ resource "aws_security_group" "ecs-tasks" {
         cidr_blocks = ["0.0.0.0/0"]
     }
 }
- 
+
 /* # Implementing ECR (Elastic Container Registry)
 
 resource "aws_ecr_repository" "project_ecr_repo" {
@@ -185,7 +199,7 @@ resource "aws_ecr_lifecycle_policy" "ecr_lifecycle_policy" {
     })
 }
  */
-# Creating a cluster for ECS 
+# Creating a cluster for ECS
 
 resource "aws_ecs_cluster" "project-cluster" {
     name = "project-cluster"
@@ -200,7 +214,7 @@ variable "docker_image_URL" {
 
 variable "database_image_URL" {
     description = "Docker Image URL from the ECR for database"
-    default = "394820470736.dkr.ecr.us-east-1.amazonaws.com/project-repo:5.0"
+    default = "394820470736.dkr.ecr.us-east-1.amazonaws.com/project-repo1:5.0"
 }
 
 # For application container
@@ -209,14 +223,14 @@ resource "aws_ecs_task_definition" "project-task" {
     container_definitions    = <<DEFINITION
     [
         {
-        "name": "project-container",
+        "name": "project-repo",
         "image": "${var.docker_image_URL}",
         "essential": true,
         "portMappings": [
             {
             "protocol": "tcp",
             "containerPort": 3000,
-            "hostPort": 4100
+            "hostPort": 80
             }
         ]
         }
@@ -236,14 +250,14 @@ resource "aws_ecs_task_definition" "project-task1" {
     container_definitions    = <<DEFINITION
     [
         {
-        "name": "project-container",
+        "name": "project-repo1",
         "image": "${var.database_image_URL}",
         "essential": true,
         "portMappings": [
             {
             "protocol": "tcp",
             "containerPort": 3000,
-            "hostPort": 27017
+            "hostPort": 80
             }
         ]
         }
@@ -421,7 +435,7 @@ resource "aws_ecs_service" "project-service" {
 
     load_balancer {
         target_group_arn    = aws_alb_target_group.lb-target-group.arn
-        container_name      = "project-container"
+        container_name      = "project-repo"
         container_port      = var.container_port
     }
 
@@ -450,7 +464,7 @@ resource "aws_ecs_service" "project-service1" {
 
     load_balancer {
         target_group_arn    = aws_alb_target_group.lb-target-group.arn
-        container_name      = "project-container"
+        container_name      = "project-repo1"
         container_port      = var.container_port
     }
 
@@ -459,9 +473,9 @@ resource "aws_ecs_service" "project-service1" {
     }
 }
 
-# Implementing AutoScaling 
+# Implementing AutoScaling
 
-resource "aws_appautoscaling_target" "ecs_target" {
+/* resource "aws_appautoscaling_target" "ecs_target" {
     max_capacity        = 4
     min_capacity        = 1
     resource_id         = "service/${aws_ecs_cluster.project-cluster.name}/${aws_ecs_service.project-service.name}"
@@ -482,4 +496,4 @@ resource "aws_appautoscaling_policy" "ecs-policy-cpu" {
         }
         target_value = 60
     }
-}
+} */
