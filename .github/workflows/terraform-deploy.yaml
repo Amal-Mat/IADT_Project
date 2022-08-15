@@ -11,20 +11,16 @@ defaults:
     shell: bash
 jobs:
   terraform:
-    name: ${{ matrix.runner }} - ${{ matrix.environment }}
-    runs-on: [ '${{ matrix.runner }}' ]
-    strategy:
-      max-parallel: 1
-      matrix:
-        include:
-          - environment: dev
-            runner: ubuntu-latest
+    name: "Terraform Deployment"
+    runs-on: ubuntu-latest
     env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.GHUSER_ACTION_KEY }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.GHUSER_SECRET_KEY }}
+        TF_ACTION_WORKING_DIR: 'terraform'
         AWS_DEFAULT_REGION: us-east-1
     steps: 
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
       - uses: hashicorp/setup-terraform@v1
         with:
           terraform_wrapper: false
