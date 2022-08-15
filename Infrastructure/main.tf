@@ -182,7 +182,14 @@ resource "aws_security_group" "ecs-tasks" {
         cidr_blocks = ["0.0.0.0/0"]
     }
 }
-
+resource "aws_security_group_rule" "opened_to_alb" {
+  type                     = "ingress"
+  protocol                 = "tcp"
+  from_port                = 0
+  to_port                  = 0
+  source_security_group_id = aws_security_group.alb.id
+  security_group_id        = "${aws_security_group.ecs-tasks.id}"
+}
 /* # Implementing ECR (Elastic Container Registry)
 
 resource "aws_ecr_repository" "project_ecr_repo" {
@@ -395,23 +402,25 @@ resource "aws_iam_role_policy_attachment" "ecs-task-execution-role-policy-attach
 
 
 # Implementing Load Balancer
-/*
+
 resource "aws_lb" "load-balancer" {
     name                        = "load-balancer"
     internal                    = false
     load_balancer_type          = "application"
     security_groups             = [aws_security_group.alb.id]
-    subnets                     = [aws_subnet.private-subnet-1.id, aws_subnet.private-subnet-2.id]
+    subnets                     = [aws_subnet.public-subnet-1.id, aws_subnet.public-subnet-2.id]
     enable_deletion_protection  = false
 }
 
 resource "aws_alb_target_group" "lb-target-group" {
     name            = "lb-target-group"
-    port            = 80
+    port            = 3000
     protocol        = "HTTP"
     vpc_id          = aws_vpc.project-vpc.id
     target_type     = "ip"
-
+    depends_on      = [
+        aws_lb.load-balancer
+    ]
     health_check {
         healthy_threshold   = "3"
         interval            = "30"
@@ -427,18 +436,13 @@ resource "aws_alb_listener" "http" {
     load_balancer_arn   = aws_lb.load-balancer.id
     port                = 80
     protocol            = "HTTP"
-
+    depends_on          = [aws_alb_target_group.lb-target-group]
     default_action {
-        type = "redirect"
-
-        redirect {
-            port        = 443
-            protocol    = "HTTPS"
-            status_code = "HTTP_301"
-        }
+        type = "forward"
+         target_group_arn = aws_alb_target_group.lb-target-group.arn
     }
 }
-
+/*
 resource "aws_alb_listener" "https" {
     load_balancer_arn   = aws_lb.load-balancer.id
     port                = 443
@@ -471,13 +475,13 @@ resource "aws_ecs_service" "project-service" {
     assign_public_ip    = true
     security_groups     = [aws_security_group.ecs-tasks.id]
     }
-    /*
+    
     load_balancer {
         target_group_arn    = aws_alb_target_group.lb-target-group.arn
         container_name      = "urls"
         container_port      = var.container_port
     }
-    */
+    
     lifecycle {
         ignore_changes = [task_definition, desired_count]
     }
@@ -514,9 +518,9 @@ resource "aws_ecs_service" "project-service1" {
 */
 # Implementing AutoScaling
 
-/* resource "aws_appautoscaling_target" "ecs_target" {
+resource "aws_appautoscaling_target" "ecs_target" {
     max_capacity        = 4
-    min_capacity        = 1
+    min_capacity        = 2
     resource_id         = "service/${aws_ecs_cluster.project-cluster.name}/${aws_ecs_service.project-service.name}"
     scalable_dimension  = "ecs:service:DesiredCount"
     service_namespace   = "ecs"
@@ -535,4 +539,4 @@ resource "aws_appautoscaling_policy" "ecs-policy-cpu" {
         }
         target_value = 60
     }
-} */
+} 
