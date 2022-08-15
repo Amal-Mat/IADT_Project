@@ -442,21 +442,21 @@ resource "aws_alb_listener" "http" {
          target_group_arn = aws_alb_target_group.lb-target-group.arn
     }
 }
-/*
+
 resource "aws_alb_listener" "https" {
     load_balancer_arn   = aws_lb.load-balancer.id
     port                = 443
     protocol            = "HTTPS"
-
+    depends_on          = [aws_alb_target_group.lb-target-group]
     ssl_policy          = "ELBSecurityPolicy-2016-08"
     certificate_arn     = var.alb_tls_cert_arn
 
     default_action {
-        target_group_arn    = aws_alb_target_group.lb-target-group.id
+        target_group_arn    = aws_alb_target_group.lb-target-group.arn
         type                = "forward"
     }
 }
-*/
+
 
 # Creating an ECS Service to run this task
 
